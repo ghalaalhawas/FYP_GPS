@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Ghala Safety App",
+    "slug": "GhalaSafetyApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fyp.ghalasafetyapp",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to warn you about dangerous junctions nearby.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to warn you about dangerous junctions while driving."
+      }
+    },
+    "android": {
+      "package": "com.fyp.ghalasafetyapp",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Ghala to use your location."
+        }
+      ]
+    ]
+  }
+}

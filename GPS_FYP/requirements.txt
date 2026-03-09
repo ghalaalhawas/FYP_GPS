@@ -1,0 +1,29 @@
+# Python Dependencies for Ghala GPS Safety App
+# Data Processing and Geospatial Analysis
+# Install with: pip install -r requirements.txt
+
+# Core geospatial libraries
+osmnx>=1.9.0
+shapely>=2.0.0
+geopandas>=0.14.0
+pyproj>=3.6.0
+
+# Data processing
+pandas>=2.1.0
+numpy>=1.24.0
+
+# Visualization
+matplotlib>=3.8.0
+folium>=0.15.0
+contextily>=1.5.0
+
+# Network analysis (included with osmnx but explicitly listed)
+networkx>=3.1
+
+# Jupyter for exploration
+jupyter>=1.0.0
+ipykernel>=6.25.0
+
+# Additional utilities
+tqdm>=4.66.0
+requests>=2.31.0

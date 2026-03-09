@@ -1,0 +1,31 @@
+# .gitignore for React Native / Expo
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn.lock
+package-lock.json
+
+# macOS
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db

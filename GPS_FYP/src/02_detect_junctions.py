@@ -1,12 +1,9 @@
 """
-Junction Detection and Visualization
-Week 2 - Data Research & Environment Setup
+02_detect_junctions.py
 
-This script identifies and classifies road junctions from OSM data.
-Analyzes junction types and identifies potentially dangerous configurations.
-
-Usage:
-    python src/02_detect_junctions.py
+Finds and classifies road junctions from OSM data.
+Identifies T-junctions, crossroads, and complex junctions,
+and assigns preliminary danger scores.
 """
 
 import osmnx as ox
@@ -17,23 +14,15 @@ from shapely.geometry import Point
 import os
 
 def load_network(place_name="Oxford, UK"):
-    """
-    Load network from file if available, otherwise download.
-    
-    Args:
-        place_name: Name of place
-    
-    Returns:
-        NetworkX graph, nodes GeoDataFrame, edges GeoDataFrame
-    """
+    """Load the network from a cached graphml file, or download it."""
     filename = place_name.lower().replace(' ', '_').replace(',', '')
     graphml_path = f"data/raw/{filename}_network.graphml"
     
     if os.path.exists(graphml_path):
-        print(f"📂 Loading existing network from: {graphml_path}")
+        print(f"Loading network from: {graphml_path}")
         G = ox.load_graphml(graphml_path)
     else:
-        print(f"⬇️  Downloading network for: {place_name}")
+        print(f"Downloading network for: {place_name}")
         G = ox.graph_from_place(place_name, network_type="drive")
     
     # Convert to GeoDataFrames
@@ -43,19 +32,8 @@ def load_network(place_name="Oxford, UK"):
 
 
 def identify_junctions(nodes, min_streets=3):
-    """
-    Identify junctions where multiple roads meet.
-    
-    Args:
-        nodes: GeoDataFrame of nodes
-        min_streets: Minimum number of streets to classify as junction (default: 3)
-    
-    Returns:
-        GeoDataFrame of junctions only
-    """
-    print(f"\n{'='*60}")
-    print(f"IDENTIFYING JUNCTIONS")
-    print(f"{'='*60}\n")
+    """Filter out nodes that are actual junctions (3+ streets meeting)."""
+    print(f"\n--- Identifying Junctions ---")
     
     # Filter nodes with street_count >= min_streets
     junctions = nodes[nodes['street_count'] >= min_streets].copy()
@@ -67,18 +45,8 @@ def identify_junctions(nodes, min_streets=3):
 
 
 def classify_junctions(junctions):
-    """
-    Classify junctions by type based on number of connecting roads.
-    
-    Args:
-        junctions: GeoDataFrame of junctions
-    
-    Returns:
-        GeoDataFrame with added 'junction_type' column
-    """
-    print(f"\n{'='*60}")
-    print(f"CLASSIFYING JUNCTIONS")
-    print(f"{'='*60}\n")
+    """Add a junction_type label based on how many roads meet."""
+    print(f"\n--- Classifying Junctions ---")
     
     def get_junction_type(street_count):
         if street_count == 3:
@@ -92,32 +60,15 @@ def classify_junctions(junctions):
     
     junctions['junction_type'] = junctions['street_count'].apply(get_junction_type)
     
-    # Print statistics
-    print("Junction type distribution:")
+    print("\nDistribution:")
     print(junctions['junction_type'].value_counts().sort_index())
     
     return junctions
 
 
 def calculate_danger_score(junctions, edges):
-    """
-    Calculate preliminary danger score for junctions.
-    Based on simple heuristics (to be refined in Week 7).
-    
-    Factors considered:
-    - T-junctions (more dangerous than crossroads)
-    - Number of roads (more complex = higher risk)
-    
-    Args:
-        junctions: GeoDataFrame of junctions
-        edges: GeoDataFrame of edges
-    
-    Returns:
-        GeoDataFrame with 'danger_score' column (0-1)
-    """
-    print(f"\n{'='*60}")
-    print(f"CALCULATING PRELIMINARY DANGER SCORES")
-    print(f"{'='*60}\n")
+    """Assign a preliminary danger score (0-1) based on junction type."""
+    print(f"\n--- Calculating Danger Scores ---")
     
     def score_junction(row):
         # Base score on street count
@@ -144,18 +95,8 @@ def calculate_danger_score(junctions, edges):
 
 
 def visualize_junctions(G, junctions, place_name="Oxford"):
-    """
-    Create visualization showing junction locations and types.
-    
-    Args:
-        G: NetworkX graph
-        junctions: GeoDataFrame of junctions
-        place_name: Name for title
-    """
-    print(f"\n{'='*60}")
-    print(f"CREATING VISUALIZATIONS")
-    print(f"{'='*60}\n")
-    
+    """Generate a few map visualizations of the junctions we found."""
+    print(f"\n--- Creating Visualizations ---")
     os.makedirs("data/visualizations", exist_ok=True)
     
     # Visualization 1: All junctions
@@ -184,7 +125,7 @@ def visualize_junctions(G, junctions, place_name="Oxford"):
     
     output_path = f"data/visualizations/{place_name.lower().replace(' ', '_')}_junctions_all.png"
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"✅ Saved: {output_path}")
+    print(f"Saved: {output_path}")
     plt.close()
     
     # Visualization 2: Junctions by type
@@ -236,7 +177,7 @@ def visualize_junctions(G, junctions, place_name="Oxford"):
     
     output_path = f"data/visualizations/{place_name.lower().replace(' ', '_')}_junctions_by_type.png"
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"✅ Saved: {output_path}")
+    print(f"Saved: {output_path}")
     plt.close()
     
     # Visualization 3: Danger scores
@@ -268,18 +209,12 @@ def visualize_junctions(G, junctions, place_name="Oxford"):
     
     output_path = f"data/visualizations/{place_name.lower().replace(' ', '_')}_danger_scores.png"
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"✅ Saved: {output_path}")
+    print(f"Saved: {output_path}")
     plt.close()
 
 
 def save_junctions_data(junctions, place_name="Oxford"):
-    """
-    Save junction data for later use.
-    
-    Args:
-        junctions: GeoDataFrame of junctions
-        place_name: Name for file naming
-    """
+    """Save junction data as GeoJSON for use in later scripts."""
     os.makedirs("data/processed", exist_ok=True)
     
     filename = place_name.lower().replace(' ', '_').replace(',', '')
@@ -290,20 +225,12 @@ def save_junctions_data(junctions, place_name="Oxford"):
     available_cols = [col for col in output_cols if col in junctions.columns]
     
     junctions[available_cols].to_file(output_path, driver="GeoJSON")
-    print(f"\n✅ Saved junction data: {output_path}")
+    print(f"\nSaved junction data: {output_path}")
 
 
 def print_interesting_junctions(junctions, n=10):
-    """
-    Print details of most interesting (complex/dangerous) junctions.
-    
-    Args:
-        junctions: GeoDataFrame of junctions
-        n: Number to print
-    """
-    print(f"\n{'='*60}")
-    print(f"TOP {n} HIGHEST DANGER SCORE JUNCTIONS")
-    print(f"{'='*60}\n")
+    """Show the top N junctions by danger score."""
+    print(f"\n--- Top {n} Highest Danger Score Junctions ---")
     
     top_junctions = junctions.nlargest(n, 'danger_score')
     
@@ -317,15 +244,8 @@ def print_interesting_junctions(junctions, n=10):
 
 
 def main():
-    """Main execution function."""
-    print("""
-    ╔══════════════════════════════════════════════════════════╗
-    ║  Junction Detection Script - Week 2                      ║
-    ║  GPS Safety App - Dangerous Junction Detection          ║
-    ╚══════════════════════════════════════════════════════════╝
-    """)
+    print("\n--- Junction Detection ---\n")
     
-    # Configuration
     place_name = "Oxford, UK"
     
     # Step 1: Load network
@@ -340,24 +260,11 @@ def main():
     # Step 4: Calculate preliminary danger scores
     junctions = calculate_danger_score(junctions, edges)
     
-    # Step 5: Visualize results
     visualize_junctions(G, junctions, place_name)
-    
-    # Step 6: Save data
     save_junctions_data(junctions, place_name)
-    
-    # Step 7: Print interesting findings
     print_interesting_junctions(junctions)
     
-    print(f"\n{'='*60}")
-    print(f"✅ JUNCTION DETECTION COMPLETE!")
-    print(f"{'='*60}")
-    print(f"\nWeek 2 Deliverable achieved:")
-    print(f"  ✅ Sample OSM data loaded and visualized")
-    print(f"  ✅ {len(junctions)} junctions identified and classified")
-    print(f"  ✅ Visualizations saved in data/visualizations/")
-    print(f"  ✅ Junction data saved for further processing")
-    print()
+    print(f"\nDone - {len(junctions)} junctions found and saved.\n")
 
 
 if __name__ == "__main__":

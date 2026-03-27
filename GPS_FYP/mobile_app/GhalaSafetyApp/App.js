@@ -1,111 +1,215 @@
-/**
- * Ghala Safety App - Main Entry Point
- * Week 5 - Hello World with GPS and Map
- * 
- * This is a basic implementation showing:
- * - Map view with user location
- * - GPS location tracking
- * - Sample hazard point display
- * 
- * To run:
- *   npx expo start
- * Then scan QR code with Expo Go app
- */
-
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, Alert, ActivityIndicator, Vibration, Pressable } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
+
+import {
+  initializeHazardService,
+  getAllHazards,
+  checkForWarning,
+  markWarned,
+  getHazardServiceStats,
+} from './src/services/hazardService';
+import { bearingBetween } from './src/utils/geo';
+import WarningBanner from './src/components/WarningBanner';
+import SettingsPanel from './src/components/SettingsPanel';
+import {
+  DEFAULT_SETTINGS,
+  loadSettings,
+  saveSettings,
+  minScoreForSensitivity,
+} from './src/services/settingsService';
+import {
+  logWarningEvent,
+  logLocationSample,
+  getEvaluationStats,
+  exportEvaluationJson,
+  clearEvaluationData,
+} from './src/services/evaluationService';
 
 export default function App() {
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeWarning, setActiveWarning] = useState(null);
+  const [hazards, setHazards] = useState([]);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [evalStats, setEvalStats] = useState({
+    totalEvents: 0,
+    warningEvents: 0,
+    locationSamples: 0,
+  });
+  const [hazardStats, setHazardStats] = useState({
+    initialized: false,
+    hazardCount: 0,
+  });
 
-  // Sample hazard points for Oxford
-  const sampleHazards = [
-    {
-      id: 1,
-      latitude: 51.7520,
-      longitude: -1.2577,
-      title: "Sample Hazard 1",
-      description: "T-junction - High risk",
-      dangerScore: 0.8
-    },
-    {
-      id: 2,
-      latitude: 51.7540,
-      longitude: -1.2600,
-      title: "Sample Hazard 2",
-      description: "Crossroads - Medium risk",
-      dangerScore: 0.6
-    }
-  ];
+  const prevCoords = useRef(null);
+  const settingsRef = useRef(DEFAULT_SETTINGS);
+  const watchSubRef = useRef(null);
+  const bannerTimeoutRef = useRef(null);
+  const locationLogCounterRef = useRef(0);
 
   useEffect(() => {
-    (async () => {
-      console.log('🔍 Requesting location permissions...');
-      
-      // Request location permissions
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        setErrorMsg('Permission to access location was denied');
-        setLoading(false);
-        Alert.alert(
-          'Location Permission Required',
-          'This app needs location access to warn you about dangerous junctions.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
+    settingsRef.current = settings;
+  }, [settings]);
 
-      console.log('✅ Location permissions granted');
-      console.log('📍 Getting current location...');
+  useEffect(() => {
+    let isMounted = true;
 
-      // Get current location
+    const boot = async () => {
       try {
-        let location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+        const saved = await loadSettings();
+        if (isMounted) {
+          setSettings(saved);
+          settingsRef.current = saved;
+        }
+
+        await initializeHazardService();
+        if (isMounted) {
+          setHazards(getAllHazards());
+          setHazardStats(getHazardServiceStats());
+        }
+
+        const stats = await getEvaluationStats();
+        if (isMounted) setEvalStats(stats);
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          if (!isMounted) return;
+          setErrorMsg('Permission to access location was denied');
+          setLoading(false);
+          Alert.alert(
+            'Location Permission Required',
+            'This app needs location access to warn you about dangerous junctions.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
         });
-        
-        setLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
+
+        if (!isMounted) return;
+
+        const initial = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
-        });
-        
-        console.log('✅ Location obtained:', location.coords.latitude, location.coords.longitude);
+        };
+        setLocation(initial);
+        prevCoords.current = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        };
         setLoading(false);
 
-        // Start watching location (updates every few seconds)
-        Location.watchPositionAsync(
+        const subscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 5000, // Update every 5 seconds
-            distanceInterval: 10, // Or when moved 10 meters
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 10000,
+            distanceInterval: 20,
           },
-          (newLocation) => {
-            console.log('📍 Location update:', newLocation.coords.latitude, newLocation.coords.longitude);
+          async (newLoc) => {
+            const { latitude, longitude } = newLoc.coords;
+
+            let userBearing = null;
+            if (prevCoords.current) {
+              const prev = prevCoords.current;
+              const dlat = latitude - prev.latitude;
+              const dlon = longitude - prev.longitude;
+              if (Math.abs(dlat) > 0.00002 || Math.abs(dlon) > 0.00002) {
+                userBearing = bearingBetween(prev.latitude, prev.longitude, latitude, longitude);
+              }
+            }
+            prevCoords.current = { latitude, longitude };
+
+            const activeSettings = settingsRef.current;
+            const warning = checkForWarning(latitude, longitude, userBearing, {
+              proximityRadiusM: activeSettings.proximityRadiusM,
+              bearingToleranceDeg: activeSettings.bearingToleranceDeg,
+              cooldownMs: activeSettings.cooldownMs,
+              minScore: minScoreForSensitivity(activeSettings.alertSensitivity),
+            });
+
+            if (warning) {
+              markWarned(warning.id);
+              setActiveWarning(warning);
+              if (activeSettings.vibrationEnabled) Vibration.vibrate(400);
+
+              if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
+              bannerTimeoutRef.current = setTimeout(() => setActiveWarning(null), 8000);
+
+              await logWarningEvent({
+                hazardId: warning.id,
+                hazardScore: warning.score,
+                distance: warning.distance,
+                userLat: latitude,
+                userLon: longitude,
+                userBearing,
+              });
+            }
+
+            locationLogCounterRef.current += 1;
+            if (locationLogCounterRef.current % 3 === 0) {
+              await logLocationSample({
+                userLat: latitude,
+                userLon: longitude,
+                userBearing,
+              });
+            }
+
+            const statsAfter = await getEvaluationStats();
+            setEvalStats(statsAfter);
+
             setLocation({
-              latitude: newLocation.coords.latitude,
-              longitude: newLocation.coords.longitude,
+              latitude,
+              longitude,
               latitudeDelta: 0.01,
               longitudeDelta: 0.01,
             });
           }
         );
+
+        watchSubRef.current = subscription;
       } catch (error) {
-        console.error('❌ Error getting location:', error);
-        setErrorMsg('Error getting location: ' + error.message);
-        setLoading(false);
+        console.error('Startup error:', error);
+        if (isMounted) {
+          setErrorMsg('Startup error: ' + error.message);
+          setLoading(false);
+        }
       }
-    })();
+    };
+
+    boot();
+
+    return () => {
+      isMounted = false;
+      if (watchSubRef.current) {
+        watchSubRef.current.remove();
+      }
+      if (bannerTimeoutRef.current) {
+        clearTimeout(bannerTimeoutRef.current);
+      }
+    };
   }, []);
 
-  // Loading state
+  const saveSettingsAndClose = async (next) => {
+    const saved = await saveSettings(next);
+    setSettings(saved);
+    setSettingsVisible(false);
+  };
+
+  const clearEvaluationAndRefresh = async () => {
+    await clearEvaluationData();
+    const stats = await getEvaluationStats();
+    setEvalStats(stats);
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -118,11 +222,10 @@ export default function App() {
     );
   }
 
-  // Error state
   if (errorMsg) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>❌ {errorMsg}</Text>
+        <Text style={styles.errorText}>{errorMsg}</Text>
         <Text style={styles.infoText}>
           Please enable location permissions in your device settings
         </Text>
@@ -130,7 +233,6 @@ export default function App() {
     );
   }
 
-  // No location yet
   if (!location) {
     return (
       <View style={styles.container}>
@@ -140,12 +242,10 @@ export default function App() {
     );
   }
 
-  // Main app view
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
-      
-      {/* Map View */}
+
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -155,37 +255,45 @@ export default function App() {
         showsMyLocationButton={true}
         followsUserLocation={true}
       >
-        {/* Sample hazard markers */}
-        {sampleHazards.map((hazard) => (
+        {hazards
+          .filter((h) => (settings.onlyHighRiskMarkers ? h.score >= 0.7 : true))
+          .map((h) => (
           <Marker
-            key={hazard.id}
-            coordinate={{
-              latitude: hazard.latitude,
-              longitude: hazard.longitude,
-            }}
-            title={hazard.title}
-            description={hazard.description}
-            pinColor={hazard.dangerScore > 0.7 ? 'red' : 'orange'}
+            key={h.id}
+            coordinate={{ latitude: h.lat, longitude: h.lon }}
+            title={`${h.type} (${h.score.toFixed(2)})`}
+            description={h.road.replace(/[\[\]']/g, '')}
+            pinColor={h.score >= 0.7 ? 'red' : 'orange'}
           />
         ))}
       </MapView>
 
-      {/* Info overlay */}
+      {/* Top info bar */}
       <View style={styles.infoOverlay}>
-        <Text style={styles.appTitle}>🚗 Ghala Safety App</Text>
+        <Text style={styles.appTitle}>Ghala Safety App</Text>
         <Text style={styles.statusText}>
-          ✅ GPS Active | 📍 Location: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+          GPS Active | {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
         </Text>
         <Text style={styles.versionText}>
-          Week 5 - Hello World | v1.0.0
+          {hazards.length} hazard points loaded | cache: {hazardStats.initialized ? 'yes' : 'no'}
         </Text>
       </View>
 
-      {/* Sample warning overlay (for demonstration) */}
-      <View style={styles.warningPreview}>
-        <Text style={styles.warningText}>ℹ️ Sample hazard markers shown</Text>
-        <Text style={styles.warningSubtext}>Red = High risk | Orange = Medium risk</Text>
-      </View>
+      <Pressable style={styles.settingsBtn} onPress={() => setSettingsVisible(true)}>
+        <Text style={styles.settingsBtnText}>Settings</Text>
+      </Pressable>
+
+      <WarningBanner hazard={activeWarning} visible={!!activeWarning} />
+
+      <SettingsPanel
+        visible={settingsVisible}
+        settings={settings}
+        evalStats={evalStats}
+        onClose={() => setSettingsVisible(false)}
+        onSave={saveSettingsAndClose}
+        onClearEvaluation={clearEvaluationAndRefresh}
+        onExportEvaluation={exportEvaluationJson}
+      />
     </View>
   );
 }
@@ -231,26 +339,24 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
   },
-  warningPreview: {
+  settingsBtn: {
     position: 'absolute',
-    bottom: 30,
-    left: 10,
+    top: 50,
     right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#0066cc',
+    backgroundColor: '#0f2742',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  warningText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 3,
-  },
-  warningSubtext: {
+  settingsBtnText: {
+    color: '#fff',
     fontSize: 12,
-    color: '#666',
+    fontWeight: '700',
   },
   loadingText: {
     fontSize: 18,

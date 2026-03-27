@@ -1,22 +1,10 @@
 """
-Hazard Point Generation Script
-Week 7 - Danger Point Algorithm
+03_generate_hazard_points.py
 
-This script generates displaced hazard warning points from junction data.
-For each dangerous junction, it:
-  1. Calculates an enhanced danger score using multiple factors
-  2. Displaces a warning point 50-100m up each approaching secondary road
-  3. Stores approach bearing so the app only warns from the correct direction
-
-The displaced points are where a driver would actually receive a warning,
-giving them time to react before reaching the junction.
-
-Usage:
-    python src/03_generate_hazard_points.py
-
-Requires:
-    - OSM data already downloaded (run 01_download_osm_data.py first)
-    - osm_parser.py in same directory
+Generates displaced hazard warning points for junctions where a
+minor road merges into a major one. Warning points are pushed
+50-100m back along the actual road curve so the driver gets warned
+before reaching the junction.
 """
 
 import sys
@@ -34,28 +22,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from osm_parser import OSMParser
 
 
-# ──────────────────────────────────────────────────────────
-# Constants
-# ──────────────────────────────────────────────────────────
+# --- Constants ---
 
-# Warning point displacement distance (metres)
-DISPLACEMENT_DISTANCE_M = 75  # 50-100m as per spec, 75 is a good middle ground
-
-# Minimum danger score to generate a hazard point
-DANGER_THRESHOLD = 0.35
-
-# Earth radius in metres (for haversine / bearing calculations)
-EARTH_RADIUS_M = 6_371_000
-
-
-# ──────────────────────────────────────────────────────────
-# Geometry helpers
-# ──────────────────────────────────────────────────────────
+DISPLACEMENT_DISTANCE_M = 75   # how far to push the warning point back (metres)
+DANGER_THRESHOLD = 0.35        # minimum score to generate a hazard point
+MIN_CLASS_DIFFERENCE = 2       # minimum road class gap for minor->major
 
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """
-    Calculate great-circle distance between two points in metres.
-    """
+    """Great-circle distance between two points in metres."""
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -64,9 +38,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 
 def bearing_between(lat1, lon1, lat2, lon2):
-    """
-    Calculate initial bearing (degrees 0-360) from point 1 to point 2.
-    """
+    """Initial bearing (0-360) from point 1 to point 2."""
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     dlon = lon2 - lon1
     x = math.sin(dlon) * math.cos(lat2)
@@ -76,17 +48,7 @@ def bearing_between(lat1, lon1, lat2, lon2):
 
 
 def displace_point(lat, lon, bearing_deg, distance_m):
-    """
-    Move a point along a given bearing by a given distance.
-
-    Args:
-        lat, lon: Starting coordinates (degrees)
-        bearing_deg: Bearing in degrees (0 = north, 90 = east)
-        distance_m: Distance to move in metres
-
-    Returns:
-        (new_lat, new_lon) in degrees
-    """
+    """Move a point along a given bearing by distance_m metres."""
     lat_r = math.radians(lat)
     lon_r = math.radians(lon)
     bearing_r = math.radians(bearing_deg)
@@ -109,57 +71,84 @@ def angle_between_bearings(b1, b2):
     return min(diff, 360 - diff)
 
 
-# ──────────────────────────────────────────────────────────
-# Danger scoring
-# ──────────────────────────────────────────────────────────
+# Earth radius in metres (for haversine / bearing calculations)
+EARTH_RADIUS_M = 6_371_000
+
+
+def displace_along_geometry(junction_lat, junction_lon, edge_geometry,
+                            junction_is_start, distance_m):
+    """Walk distance_m along the road LineString instead of a straight line.
+    Returns (new_lat, new_lon, approach_bearing) or None on failure."""
+    # Fallback: if no geometry, use straight-line displacement
+    if edge_geometry is None or edge_geometry.is_empty:
+        return None
+
+    try:
+        coords = list(edge_geometry.coords)  # list of (lon, lat)
+    except Exception:
+        return None
+
+    if len(coords) < 2:
+        return None
+
+    # If the junction is at the END of the linestring, reverse it
+    # so we always walk away from the junction from index 0.
+    jpt = (junction_lon, junction_lat)
+    start_dist = math.hypot(coords[0][0] - jpt[0], coords[0][1] - jpt[1])
+    end_dist = math.hypot(coords[-1][0] - jpt[0], coords[-1][1] - jpt[1])
+
+    if end_dist < start_dist:
+        coords = list(reversed(coords))
+
+    # Walk along the coordinate list, accumulating haversine distance
+    walked = 0.0
+    prev_lon, prev_lat = coords[0]
+
+    for lon2, lat2 in coords[1:]:
+        seg_len = haversine_distance(prev_lat, prev_lon, lat2, lon2)
+        if walked + seg_len >= distance_m:
+            # Interpolate within this segment
+            remaining = distance_m - walked
+            frac = remaining / seg_len if seg_len > 0 else 0
+            new_lon = prev_lon + frac * (lon2 - prev_lon)
+            new_lat = prev_lat + frac * (lat2 - prev_lat)
+
+            # Bearing from displaced point toward junction
+            approach_bearing = bearing_between(
+                new_lat, new_lon, junction_lat, junction_lon)
+            return (new_lat, new_lon, approach_bearing)
+
+        walked += seg_len
+        prev_lon, prev_lat = lon2, lat2
+
+    # Road segment shorter than requested distance — place at end
+    new_lat, new_lon = coords[-1][1], coords[-1][0]
+    approach_bearing = bearing_between(
+        new_lat, new_lon, junction_lat, junction_lon)
+    return (new_lat, new_lon, approach_bearing)
+
 
 def calculate_enhanced_danger_score(junction_info, parser):
-    """
-    Calculate a danger score (0-1) based on multiple factors:
-        1. Junction complexity      (more arms → harder to navigate)
-        2. Road classification      (mismatch hints at priority confusion)
-        3. Speed differential       (big speed gap → higher risk)
-        4. Approach angle sharpness (tight angles reduce visibility)
-
-    Args:
-        junction_info: dict returned by parser.get_junction_info()
-        parser: OSMParser instance (for road classification helper)
-
-    Returns:
-        float: danger score 0-1
-    """
+    """Danger score (0-1) weighted toward minor->major class mismatch."""
     scores = {}
 
-    # --- 1. Junction complexity (0-1) ---
-    street_count = junction_info['street_count']
-    if street_count == 3:
-        scores['complexity'] = 0.5      # T-junction
-    elif street_count == 4:
-        scores['complexity'] = 0.4      # Standard crossroads
-    elif street_count >= 5:
-        scores['complexity'] = 0.7      # Complex junction
-    else:
-        scores['complexity'] = 0.2
-
-    # --- 2. Road classification mismatch (0-1) ---
+    # --- 1. Road classification mismatch (0-1) ---
     road_classes = []
     for edge in junction_info['edges']:
         road_classes.append(parser.get_road_classification(edge['highway']))
 
     if len(road_classes) >= 2:
         class_diff = max(road_classes) - min(road_classes)
-        # Normalise: diff of 8+ maps to 1.0
-        scores['class_mismatch'] = min(class_diff / 8.0, 1.0)
+        # Diff of 6+ maps to 1.0  (e.g. primary vs residential)
+        scores['class_mismatch'] = min(class_diff / 6.0, 1.0)
     else:
         scores['class_mismatch'] = 0.0
 
-    # --- 3. Speed differential (0-1) ---
+    # --- 2. Speed differential (0-1) ---
     speed_diff = junction_info.get('speed_differential', 0)
-    # 40 mph difference maps to 1.0
     scores['speed_diff'] = min(speed_diff / 40.0, 1.0)
 
-    # --- 4. Approach angle sharpness (0-1) ---
-    # Compute pairwise approach bearings; tight angles are more dangerous
+    # --- 3. Approach angle sharpness (0-1) ---
     if len(junction_info['edges']) >= 2:
         jlat, jlon = junction_info['location']
         bearings = []
@@ -179,40 +168,38 @@ def calculate_enhanced_danger_score(junction_info, parser):
                     a = angle_between_bearings(bearings[i], bearings[j])
                     if a < min_angle:
                         min_angle = a
-            # Angles < 45° are very tight and dangerous
             scores['angle'] = max(0, 1.0 - min_angle / 90.0)
         else:
             scores['angle'] = 0.0
     else:
         scores['angle'] = 0.0
 
-    # --- Weighted combination ---
+    # --- 4. Junction complexity (0-1) ---
+    street_count = junction_info['street_count']
+    if street_count == 3:
+        scores['complexity'] = 0.5
+    elif street_count == 4:
+        scores['complexity'] = 0.4
+    elif street_count >= 5:
+        scores['complexity'] = 0.7
+    else:
+        scores['complexity'] = 0.2
+
+    # --- Weighted combination (focused on minor→major) ---
     weights = {
-        'complexity': 0.20,
-        'class_mismatch': 0.30,
-        'speed_diff': 0.30,
-        'angle': 0.20,
+        'class_mismatch': 0.35,
+        'speed_diff':     0.30,
+        'angle':          0.20,
+        'complexity':     0.15,
     }
 
     total = sum(scores[k] * weights[k] for k in weights)
-
-    # Clamp 0-1
     return round(min(max(total, 0.0), 1.0), 4)
 
 
-# ──────────────────────────────────────────────────────────
-# Hazard point generation
-# ──────────────────────────────────────────────────────────
-
 def identify_secondary_roads(junction_info, parser):
-    """
-    For a given junction, identify the *secondary* (lower-class) roads.
-    The warning point is placed on these roads because a driver coming
-    from a minor road onto a major road needs the most warning.
-
-    Returns:
-        list of dicts with keys: edge, bearing_toward_junction, road_class
-    """
+    """Find the minor roads at a junction that feed into a major road.
+    Only returns results when there's a clear class gap (>= MIN_CLASS_DIFFERENCE)."""
     edges = junction_info['edges']
     if not edges:
         return []
@@ -223,17 +210,18 @@ def identify_secondary_roads(junction_info, parser):
         rc = parser.get_road_classification(edge['highway'])
         classified.append({'edge': edge, 'road_class': rc})
 
-    # Find the maximum (most major) road class at this junction
     max_class = max(c['road_class'] for c in classified)
+    min_class = min(c['road_class'] for c in classified)
 
-    # Secondary roads are those strictly below the maximum,
-    # or ALL roads if they are all the same class (roundabout / equal junction)
+    # Only generate hazard when minor road actually meets a major one
+    if (max_class - min_class) < MIN_CLASS_DIFFERENCE:
+        return []  # roads are too similar — not a minor→major merge
+
+    # Only pick the minor (lower-class) roads
     secondary = [c for c in classified if c['road_class'] < max_class]
     if not secondary:
-        # All roads are equal class - pick all of them
-        secondary = classified
+        return []
 
-    # Calculate bearing from each secondary road toward the junction
     jlat, jlon = junction_info['location']
     result = []
     for item in secondary:
@@ -242,11 +230,11 @@ def identify_secondary_roads(junction_info, parser):
         try:
             other_node = parser.nodes.loc[other_id]
             olat, olon = other_node.geometry.y, other_node.geometry.x
-            # Bearing FROM the other node TOWARD the junction
             approach_bearing = bearing_between(olat, olon, jlat, jlon)
             result.append({
                 'edge': edge,
                 'road_class': item['road_class'],
+                'max_class': max_class,
                 'other_lat': olat,
                 'other_lon': olon,
                 'approach_bearing': approach_bearing,
@@ -259,29 +247,17 @@ def identify_secondary_roads(junction_info, parser):
 
 def generate_hazard_points(parser, danger_threshold=DANGER_THRESHOLD,
                            displacement_m=DISPLACEMENT_DISTANCE_M):
-    """
-    Main function: analyse every junction in the network and generate
-    displaced hazard warning points.
-
-    Args:
-        parser: OSMParser instance with network loaded
-        danger_threshold: Minimum score to create a hazard point
-        displacement_m: How far to push the warning point up the road (metres)
-
-    Returns:
-        GeoDataFrame of hazard points
-    """
+    """Go through every junction, score it, and generate displaced warning points."""
     junctions = parser.get_junctions(min_streets=3)
 
-    print(f"\n{'='*60}")
-    print(f"GENERATING HAZARD POINTS")
-    print(f"Danger threshold: {danger_threshold}")
-    print(f"Displacement: {displacement_m} m")
-    print(f"{'='*60}\n")
+    print(f"\n--- Generating Hazard Points ---")
+    print(f"Threshold: {danger_threshold}, displacement: {displacement_m}m")
 
     hazard_records = []
     skipped = 0
+    skipped_no_merge = 0
     errors = 0
+    curve_displaced = 0
 
     for idx, junction_id in enumerate(junctions.index):
         if idx % 200 == 0:
@@ -300,16 +276,32 @@ def generate_hazard_points(parser, danger_threshold=DANGER_THRESHOLD,
             skipped += 1
             continue
 
-        # Identify secondary roads for warning placement
+        # Identify MINOR roads that merge into a MAJOR road
         secondary_roads = identify_secondary_roads(info, parser)
 
-        for road in secondary_roads:
-            # Bearing FROM junction AWAY along secondary road (opposite of approach)
-            away_bearing = (road['approach_bearing'] + 180) % 360
+        if not secondary_roads:
+            skipped_no_merge += 1
+            continue
 
-            # Displace point up the secondary road
+        for road in secondary_roads:
             jlat, jlon = info['location']
-            wlat, wlon = displace_point(jlat, jlon, away_bearing, displacement_m)
+
+            # --- Curve-aware displacement (follows actual road shape) ---
+            edge_geom = road['edge'].get('geometry', None)
+            displaced = displace_along_geometry(
+                jlat, jlon, edge_geom,
+                junction_is_start=(road['edge']['from'] == junction_id),
+                distance_m=displacement_m
+            )
+
+            if displaced is not None:
+                wlat, wlon, approach_bearing = displaced
+                curve_displaced += 1
+            else:
+                # Fallback: straight-line displacement
+                away_bearing = (road['approach_bearing'] + 180) % 360
+                wlat, wlon = displace_point(jlat, jlon, away_bearing, displacement_m)
+                approach_bearing = road['approach_bearing']
 
             # Junction type label
             sc = info['street_count']
@@ -328,37 +320,35 @@ def generate_hazard_points(parser, danger_threshold=DANGER_THRESHOLD,
                 'warning_lon': wlon,
                 'danger_score': danger_score,
                 'junction_type': jtype,
+                'merge_type': 'minor_to_major',
                 'street_count': sc,
-                'approach_bearing': round(road['approach_bearing'], 1),
+                'approach_bearing': round(approach_bearing, 1),
                 'road_name': road['edge'].get('name', 'Unnamed'),
                 'road_type': road['edge'].get('highway', 'unknown'),
+                'major_road_class': road.get('max_class', 0),
+                'minor_road_class': road.get('road_class', 0),
                 'speed_differential': info.get('speed_differential', 0),
                 'geometry': Point(wlon, wlat),   # GeoJSON is (lon, lat)
             })
 
-    print(f"\n  ✅ Generated {len(hazard_records)} hazard warning points")
-    print(f"  ⏩ Skipped {skipped} junctions below threshold")
+    print(f"\n  Generated {len(hazard_records)} hazard warning points")
+    print(f"  Skipped {skipped} below threshold, {skipped_no_merge} with no minor->major merge")
+    print(f"  {curve_displaced}/{len(hazard_records)} displaced along road curve")
     if errors:
-        print(f"  ⚠️  {errors} junctions had errors (missing data)")
+        print(f"  {errors} junctions had errors (missing data)")
 
     if not hazard_records:
-        print("  ⚠️  No hazard points generated! Try lowering the threshold.")
+        print("  No hazard points generated - try lowering the threshold.")
         return gpd.GeoDataFrame()
 
     gdf = gpd.GeoDataFrame(hazard_records, crs="EPSG:4326")
     return gdf
 
 
-# ──────────────────────────────────────────────────────────
-# Visualisation
-# ──────────────────────────────────────────────────────────
-
 def visualize_hazard_points(parser, hazard_gdf, place_name="Oxford"):
-    """
-    Create a map showing junction locations and their displaced warning points.
-    """
+    """Map showing junctions and their displaced warning points."""
     if hazard_gdf.empty:
-        print("  ⚠️  No hazard points to visualise.")
+        print("  No hazard points to visualise.")
         return
 
     os.makedirs("data/visualizations", exist_ok=True)
@@ -399,15 +389,12 @@ def visualize_hazard_points(parser, hazard_gdf, place_name="Oxford"):
 
     out = f"data/visualizations/{place_name.lower().replace(' ', '_')}_hazard_points.png"
     plt.savefig(out, dpi=300, bbox_inches='tight')
-    print(f"  ✅ Saved visualisation: {out}")
+    print(f"  Saved: {out}")
     plt.close()
 
 
 def visualize_displacement_example(parser, hazard_gdf, place_name="Oxford"):
-    """
-    Zoomed-in example showing how warning points are displaced from junctions.
-    Picks a few high-danger junctions and draws arrows.
-    """
+    """Zoomed-in view of a few high-danger junctions with arrows showing displacement."""
     if hazard_gdf.empty:
         return
 
@@ -454,34 +441,21 @@ def visualize_displacement_example(parser, hazard_gdf, place_name="Oxford"):
 
     out = f"data/visualizations/{place_name.lower().replace(' ', '_')}_displacement_example.png"
     plt.savefig(out, dpi=300, bbox_inches='tight')
-    print(f"  ✅ Saved displacement example: {out}")
+    print(f"  Saved: {out}")
     plt.close()
 
 
-# ──────────────────────────────────────────────────────────
-# Save
-# ──────────────────────────────────────────────────────────
-
 def save_hazard_points(hazard_gdf, place_name="Oxford"):
-    """Save full hazard points GeoDataFrame to GeoJSON."""
+    """Save hazard points as GeoJSON."""
     os.makedirs("data/processed", exist_ok=True)
     filename = place_name.lower().replace(' ', '_').replace(',', '')
     out = f"data/processed/{filename}_hazard_points.geojson"
     hazard_gdf.to_file(out, driver="GeoJSON")
-    print(f"  ✅ Saved hazard points: {out}  ({len(hazard_gdf)} features)")
+    print(f"  Saved: {out}  ({len(hazard_gdf)} features)")
 
-
-# ──────────────────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────────────────
 
 def main():
-    print("""
-    ╔══════════════════════════════════════════════════════════╗
-    ║  Hazard Point Generation – Week 7                        ║
-    ║  Enhanced danger scoring + point displacement            ║
-    ╚══════════════════════════════════════════════════════════╝
-    """)
+    print("\n--- Hazard Point Generation ---\n")
 
     place_name = "Oxford, UK"
 
@@ -490,17 +464,15 @@ def main():
     parser.load_network()
     parser.print_statistics()
 
-    # 2. Generate hazard points
+    # 2. Generate hazard points (only minor→major merges)
     hazard_gdf = generate_hazard_points(parser)
 
     if hazard_gdf.empty:
-        print("\n❌ No hazard points generated. Exiting.")
+        print("\nNo hazard points generated.")
         return
 
-    # 3. Print summary
-    print(f"\n{'='*60}")
-    print("HAZARD POINT SUMMARY")
-    print(f"{'='*60}")
+    # Summary
+    print(f"\n--- Hazard Point Summary ---")
     print(f"Total warning points: {len(hazard_gdf)}")
     print(f"Unique junctions:     {hazard_gdf['junction_id'].nunique()}")
     print(f"\nDanger score distribution:")
@@ -511,25 +483,14 @@ def main():
     top10 = hazard_gdf.nlargest(10, 'danger_score')
     for _, r in top10.iterrows():
         print(f"  {r['junction_type']:12s}  score={r['danger_score']:.3f}  "
-              f"road={r['road_name']}  speed_diff={r['speed_differential']} mph")
+              f"minor={r['road_name']} ({r['road_type']})  "
+              f"speed_diff={r['speed_differential']} mph")
 
-    # 4. Visualise
     visualize_hazard_points(parser, hazard_gdf, place_name)
     visualize_displacement_example(parser, hazard_gdf, place_name)
-
-    # 5. Save
     save_hazard_points(hazard_gdf, place_name)
 
-    print(f"\n{'='*60}")
-    print("✅ HAZARD POINT GENERATION COMPLETE!")
-    print(f"{'='*60}")
-    print(f"\nWeek 7 Deliverable achieved:")
-    print(f"  ✅ Enhanced danger scoring algorithm")
-    print(f"  ✅ Point displacement logic ({DISPLACEMENT_DISTANCE_M}m)")
-    print(f"  ✅ {len(hazard_gdf)} hazard warning points generated")
-    print(f"  ✅ Visualisations saved in data/visualizations/")
-    print(f"  ✅ GeoJSON saved in data/processed/")
-    print()
+    print(f"\nDone - {len(hazard_gdf)} hazard points generated and saved.\n")
 
 
 if __name__ == "__main__":

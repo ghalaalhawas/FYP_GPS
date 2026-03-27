@@ -1,16 +1,8 @@
 """
-Basic OSM Data Parser
-Week 5 - January 27 - February 2, 2026
+osm_parser.py - OSM data loading and parsing
 
-This module provides a clean interface for loading and parsing OSM data.
-Used by other scripts as a foundation for junction analysis.
-
-Usage:
-    from osm_parser import OSMParser
-    
-    parser = OSMParser("Oxford, UK")
-    network = parser.load_network()
-    junctions = parser.get_junctions()
+Provides OSMParser class for loading street networks from OpenStreetMap.
+Used by the other scripts for junction analysis.
 """
 
 import osmnx as ox
@@ -19,16 +11,9 @@ import os
 from pathlib import Path
 
 class OSMParser:
-    """Parse and load OpenStreetMap network data."""
+    """Loads and parses OpenStreetMap road network data."""
     
     def __init__(self, place_name="Oxford, UK", network_type="drive"):
-        """
-        Initialize OSM parser.
-        
-        Args:
-            place_name (str): Name of place to load
-            network_type (str): Type of network ('drive', 'walk', 'bike', 'all')
-        """
         self.place_name = place_name
         self.network_type = network_type
         self.G = None
@@ -39,100 +24,64 @@ class OSMParser:
         ox.settings.log_console = True
         ox.settings.use_cache = True
         
-        # Set up data paths
         self.data_dir = Path("data")
         self.raw_dir = self.data_dir / "raw"
         self.processed_dir = self.data_dir / "processed"
-        
-        # Create directories if they don't exist
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         self.processed_dir.mkdir(parents=True, exist_ok=True)
     
     def _get_filename(self):
-        """Generate filename from place name."""
         return self.place_name.lower().replace(' ', '_').replace(',', '').replace('.', '')
     
     def load_network(self, force_download=False):
-        """
-        Load street network. Downloads if not cached.
-        
-        Args:
-            force_download (bool): Force fresh download even if cached
-        
-        Returns:
-            NetworkX graph
-        """
+        """Load the street network graph. Downloads from OSM if not cached locally."""
         filename = self._get_filename()
         graphml_path = self.raw_dir / f"{filename}_network.graphml"
         
         if graphml_path.exists() and not force_download:
-            print(f"📂 Loading cached network: {graphml_path}")
+            print(f"Loading cached network: {graphml_path}")
             self.G = ox.load_graphml(graphml_path)
         else:
-            print(f"⬇️  Downloading network: {self.place_name}")
+            print(f"Downloading network for: {self.place_name}")
             self.G = ox.graph_from_place(
                 self.place_name,
                 network_type=self.network_type
             )
-            # Save for future use
             ox.save_graphml(self.G, graphml_path)
-            print(f"💾 Saved network: {graphml_path}")
+            print(f"Saved to: {graphml_path}")
         
-        # Convert to GeoDataFrames
         self.nodes, self.edges = ox.graph_to_gdfs(self.G)
-        
-        print(f"✅ Loaded {len(self.nodes)} nodes, {len(self.edges)} edges")
+        print(f"Loaded {len(self.nodes)} nodes, {len(self.edges)} edges")
         
         return self.G
     
     def get_nodes(self):
-        """Get nodes GeoDataFrame."""
         if self.nodes is None:
-            raise ValueError("Network not loaded. Call load_network() first.")
+            raise ValueError("Network not loaded yet - call load_network() first")
         return self.nodes
     
     def get_edges(self):
-        """Get edges GeoDataFrame."""
         if self.edges is None:
-            raise ValueError("Network not loaded. Call load_network() first.")
+            raise ValueError("Network not loaded yet - call load_network() first")
         return self.edges
     
     def get_junctions(self, min_streets=3):
-        """
-        Get junctions (nodes where multiple roads meet).
-        
-        Args:
-            min_streets (int): Minimum number of streets to classify as junction
-        
-        Returns:
-            GeoDataFrame of junctions
-        """
+        """Return nodes where at least min_streets roads meet."""
         if self.nodes is None:
-            raise ValueError("Network not loaded. Call load_network() first.")
+            raise ValueError("Network not loaded yet - call load_network() first")
         
         junctions = self.nodes[self.nodes['street_count'] >= min_streets].copy()
-        print(f"🔍 Found {len(junctions)} junctions (>= {min_streets} streets)")
-        
+        print(f"Found {len(junctions)} junctions (>= {min_streets} streets)")
         return junctions
     
     def get_junction_edges(self, junction_id):
-        """
-        Get all edges connected to a specific junction.
-        
-        Args:
-            junction_id: OSM node ID
-        
-        Returns:
-            List of edge dictionaries
-        """
+        """Get all edges connected to a junction node. Returns list of dicts."""
         if self.G is None:
-            raise ValueError("Network not loaded. Call load_network() first.")
+            raise ValueError("Network not loaded yet - call load_network() first")
         
-        # Get incoming and outgoing edges
         in_edges = list(self.G.in_edges(junction_id, data=True))
         out_edges = list(self.G.out_edges(junction_id, data=True))
         
-        # Combine and deduplicate
         all_edges = []
         seen = set()
         
@@ -140,29 +89,29 @@ class OSMParser:
             edge_key = tuple(sorted([u, v]))
             if edge_key not in seen:
                 seen.add(edge_key)
+                # try to grab the actual road geometry (LineString) from the edges gdf
+                geom = None
+                try:
+                    if (u, v, 0) in self.edges.index:
+                        geom = self.edges.loc[(u, v, 0), 'geometry']
+                    elif (v, u, 0) in self.edges.index:
+                        geom = self.edges.loc[(v, u, 0), 'geometry']
+                except (KeyError, TypeError):
+                    pass
                 all_edges.append({
                     'from': u,
                     'to': v,
                     'highway': data.get('highway', 'unknown'),
                     'maxspeed': data.get('maxspeed', None),
                     'name': data.get('name', 'Unnamed'),
-                    'length': data.get('length', 0)
+                    'length': data.get('length', 0),
+                    'geometry': geom,
                 })
         
         return all_edges
     
     def get_road_classification(self, highway_tag):
-        """
-        Convert OSM highway tag to numeric classification.
-        Higher number = more major road.
-        
-        Args:
-            highway_tag (str or list): OSM highway tag value
-        
-        Returns:
-            int: Road classification score (0-10)
-        """
-        # Handle list of tags (take first)
+        """Map an OSM highway tag to a numeric class (0-10, higher = bigger road)."""
         if isinstance(highway_tag, list):
             highway_tag = highway_tag[0] if highway_tag else 'unknown'
         
@@ -181,28 +130,17 @@ class OSMParser:
         return classification.get(highway_tag, 0)
     
     def extract_speed_limit(self, maxspeed_tag):
-        """
-        Extract numeric speed limit from OSM maxspeed tag.
-        
-        Args:
-            maxspeed_tag: OSM maxspeed value (e.g., "30 mph", "50", None)
-        
-        Returns:
-            int: Speed in mph, or None if not available
-        """
+        """Pull out a numeric speed (mph) from the OSM maxspeed tag. Returns None if unavailable."""
         if maxspeed_tag is None or maxspeed_tag == '':
             return None
         
-        # Handle list
         if isinstance(maxspeed_tag, list):
             maxspeed_tag = maxspeed_tag[0] if maxspeed_tag else None
             if maxspeed_tag is None:
                 return None
         
-        # Convert to string
         maxspeed_str = str(maxspeed_tag).lower()
         
-        # Extract number
         import re
         match = re.search(r'(\d+)', maxspeed_str)
         if not match:
@@ -210,28 +148,17 @@ class OSMParser:
         
         speed = int(match.group(1))
         
-        # Convert km/h to mph if needed
+        # convert km/h to mph if needed
         if 'km' in maxspeed_str or 'kph' in maxspeed_str:
             speed = int(speed * 0.621371)
         
         return speed
     
     def infer_speed_limit(self, highway_tag):
-        """
-        Infer typical speed limit based on road classification.
-        Used when maxspeed tag is missing.
-        
-        Args:
-            highway_tag (str): OSM highway tag
-        
-        Returns:
-            int: Estimated speed in mph
-        """
-        # Handle list
+        """Guess a typical UK speed limit from the road type (for when maxspeed is missing)."""
         if isinstance(highway_tag, list):
             highway_tag = highway_tag[0] if highway_tag else 'unknown'
         
-        # UK typical speeds
         typical_speeds = {
             'motorway': 70,
             'trunk': 70,
@@ -246,25 +173,14 @@ class OSMParser:
         return typical_speeds.get(highway_tag, 30)
     
     def get_junction_info(self, junction_id):
-        """
-        Get comprehensive information about a junction.
-        
-        Args:
-            junction_id: OSM node ID
-        
-        Returns:
-            dict: Junction information
-        """
+        """Build a dict of useful info about a single junction."""
         if self.nodes is None or self.G is None:
-            raise ValueError("Network not loaded. Call load_network() first.")
+            raise ValueError("Network not loaded yet - call load_network() first")
         
-        # Get node info
         node = self.nodes.loc[junction_id]
-        
-        # Get connected edges
         edges = self.get_junction_edges(junction_id)
         
-        # Analyze roads
+        # figure out speed limits for each connected road
         road_types = []
         speed_limits = []
         
@@ -290,93 +206,71 @@ class OSMParser:
         return info
     
     def save_network_data(self):
-        """Save network data to GeoJSON files."""
+        """Export nodes and edges as GeoJSON files."""
         filename = self._get_filename()
         
-        # Save nodes
         nodes_path = self.raw_dir / f"{filename}_nodes.geojson"
         self.nodes.to_file(nodes_path, driver="GeoJSON")
-        print(f"💾 Saved nodes: {nodes_path}")
+        print(f"Saved nodes: {nodes_path}")
         
-        # Save edges
         edges_path = self.raw_dir / f"{filename}_edges.geojson"
         self.edges.to_file(edges_path, driver="GeoJSON")
-        print(f"💾 Saved edges: {edges_path}")
+        print(f"Saved edges: {edges_path}")
     
     def print_statistics(self):
-        """Print network statistics."""
+        """Print a quick overview of the loaded network."""
         if self.G is None:
-            raise ValueError("Network not loaded. Call load_network() first.")
+            raise ValueError("Network not loaded yet - call load_network() first")
         
-        print("\n" + "="*60)
-        print(f"NETWORK STATISTICS: {self.place_name}")
-        print("="*60)
-        print(f"Total nodes: {len(self.nodes)}")
-        print(f"Total edges: {len(self.edges)}")
-        print(f"Network type: {self.network_type}")
+        print(f"\n--- Network Stats: {self.place_name} ---")
+        print(f"Nodes: {len(self.nodes)}")
+        print(f"Edges: {len(self.edges)}")
+        print(f"Type:  {self.network_type}")
         
-        # Junction breakdown
+        # junction breakdown
         junctions_3 = len(self.nodes[self.nodes['street_count'] == 3])
         junctions_4 = len(self.nodes[self.nodes['street_count'] == 4])
         junctions_5plus = len(self.nodes[self.nodes['street_count'] >= 5])
         
-        print(f"\nJunction breakdown:")
+        print(f"\nJunctions:")
         print(f"  T-junctions (3-way): {junctions_3}")
-        print(f"  Crossroads (4-way): {junctions_4}")
-        print(f"  Complex (5+ way): {junctions_5plus}")
+        print(f"  Crossroads  (4-way): {junctions_4}")
+        print(f"  Complex     (5+):    {junctions_5plus}")
         
-        # Road types
         if 'highway' in self.edges.columns:
-            print(f"\nMost common road types:")
+            print(f"\nCommon road types:")
             print(self.edges['highway'].value_counts().head())
-        
-        print("="*60 + "\n")
+        print()
 
 
 def main():
-    """Test the OSM parser."""
-    print("""
-    ╔══════════════════════════════════════════════════════════╗
-    ║  OSM Data Parser - Week 5                                ║
-    ║  Basic OSM data loading and analysis                     ║
-    ╚══════════════════════════════════════════════════════════╝
-    """)
+    """Quick test of the parser."""
+    print("\n--- OSM Parser Test ---\n")
     
-    # Create parser
     parser = OSMParser("Oxford, UK")
-    
-    # Load network
     parser.load_network()
-    
-    # Print statistics
     parser.print_statistics()
     
-    # Get junctions
     junctions = parser.get_junctions(min_streets=3)
     
-    # Analyze a sample junction
+    # look at one junction as a sanity check
     if len(junctions) > 0:
         sample_id = junctions.index[0]
-        print(f"\n{'='*60}")
-        print(f"SAMPLE JUNCTION ANALYSIS")
-        print(f"{'='*60}\n")
+        print(f"\n--- Sample Junction ---")
         
         info = parser.get_junction_info(sample_id)
-        print(f"Junction ID: {info['id']}")
+        print(f"ID: {info['id']}")
         print(f"Location: {info['location']}")
-        print(f"Number of roads: {info['street_count']}")
+        print(f"Roads meeting: {info['street_count']}")
         print(f"Road types: {info['road_types']}")
         print(f"Speed limits: {info['speed_limits']} mph")
-        print(f"Speed differential: {info['speed_differential']} mph")
-        print(f"\nConnected roads:")
+        print(f"Speed diff: {info['speed_differential']} mph")
+        print(f"Connected roads:")
         for edge in info['edges']:
             print(f"  - {edge['name']} ({edge['highway']})")
     
-    # Save data
     parser.save_network_data()
-    
-    print("\n✅ OSM Parser test complete!")
-    print("Parser ready to use in other scripts.\n")
+    print("\nDone.\n")
 
 
 if __name__ == "__main__":

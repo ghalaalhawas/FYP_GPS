@@ -2,15 +2,14 @@
 04_export_hazard_data.py
 
 Converts the hazard points GeoJSON into a lightweight JSON file
-for the React Native mobile app. Strips unnecessary fields,
-rounds coordinates, and produces both compact + pretty versions.
+for the React Native mobile app and creates a small sample set
+for quick testing.
 """
 
 import json
 import os
 import sys
 import geopandas as gpd
-import pandas as pd
 from pathlib import Path
 
 # --- Config ---
@@ -69,48 +68,6 @@ def save_compact_json(records, output_path):
     return size_bytes
 
 
-def save_pretty_json(records, output_path):
-    """Save a pretty-printed version for easier debugging."""
-    with open(output_path, 'w') as f:
-        json.dump(records, f, indent=2)
-
-    size_bytes = os.path.getsize(output_path)
-    size_kb = size_bytes / 1024
-    print(f"Saved pretty JSON: {output_path}")
-    print(f"  File size: {size_kb:.1f} KB ({size_bytes:,} bytes)")
-    return size_bytes
-
-
-def print_export_summary(records, compact_size, pretty_size):
-    """Print a quick summary of what got exported."""
-    print(f"\n--- Export Summary ---")
-    print(f"Total hazard points:  {len(records)}")
-
-    if records:
-        scores = [r['score'] for r in records]
-        print(f"Score range:          {min(scores):.3f} – {max(scores):.3f}")
-        print(f"Mean score:           {sum(scores)/len(scores):.3f}")
-
-        # Type breakdown
-        from collections import Counter
-        types = Counter(r['type'] for r in records)
-        print(f"\nJunction types:")
-        for t, count in types.most_common():
-            print(f"  {t:15s} {count:5d}")
-
-    print(f"\nFile sizes:")
-    print(f"  Compact (mobile):   {compact_size/1024:.1f} KB")
-    print(f"  Pretty  (debug):    {pretty_size/1024:.1f} KB")
-    print(f"  Savings:            {(1 - compact_size/pretty_size)*100:.0f}% smaller")
-
-    # Estimate for larger regions
-    per_point = compact_size / max(len(records), 1)
-    print(f"\nEstimated sizes (compact):")
-    for n in [1000, 5000, 10000, 50000]:
-        est = per_point * n / 1024
-        print(f"  {n:>6,} points → {est:>8.1f} KB ({est/1024:.2f} MB)")
-
-
 def generate_sample_subset(records, n=50, output_path=None):
     """Pick the top N highest-danger points as a small test dataset."""
     if not records:
@@ -145,19 +102,12 @@ def main():
     compact_path = os.path.join(OUTPUT_DIR, OUTPUT_FILENAME)
     compact_size = save_compact_json(records, compact_path)
 
-    pretty_path = os.path.join(OUTPUT_DIR,
-                                OUTPUT_FILENAME.replace('.json', '_pretty.json'))
-    pretty_size = save_pretty_json(records, pretty_path)
-
     sample_path = os.path.join(OUTPUT_DIR,
                                 OUTPUT_FILENAME.replace('.json', '_sample50.json'))
     generate_sample_subset(records, n=50, output_path=sample_path)
 
-    print_export_summary(records, compact_size, pretty_size)
-
     print(f"\nDone. Output files:")
     print(f"  {compact_path}  (mobile)")
-    print(f"  {pretty_path}  (readable)")
     print(f"  {sample_path}  (50-point test set)")
     print()
 

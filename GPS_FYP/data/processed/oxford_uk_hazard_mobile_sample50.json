@@ -7,9 +7,12 @@
     "jLon": -1.200328,
     "score": 0.745,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 29.5,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 2,
@@ -19,9 +22,12 @@
     "jLon": -1.204767,
     "score": 0.743,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 204.3,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 3,
@@ -31,9 +37,12 @@
     "jLon": -1.20463,
     "score": 0.74,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 211.6,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 4,
@@ -43,9 +52,12 @@
     "jLon": -1.181987,
     "score": 0.732,
     "type": "5-way",
+    "mergeType": "minor_to_major",
     "bearing": 298.8,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 5,
@@ -55,9 +67,12 @@
     "jLon": -1.181987,
     "score": 0.732,
     "type": "5-way",
+    "mergeType": "minor_to_major",
     "bearing": 346.5,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 6,
@@ -67,9 +82,12 @@
     "jLon": -1.181987,
     "score": 0.732,
     "type": "5-way",
+    "mergeType": "minor_to_major",
     "bearing": 163.8,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 7,
@@ -79,9 +97,12 @@
     "jLon": -1.232368,
     "score": 0.725,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 316.2,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 8,
@@ -91,9 +112,12 @@
     "jLon": -1.196915,
     "score": 0.716,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 2.8,
     "road": "['Green Road']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 9,
@@ -103,9 +127,12 @@
     "jLon": -1.22815,
     "score": 0.696,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 100.5,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 10,
@@ -115,9 +142,12 @@
     "jLon": -1.265563,
     "score": 0.683,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 318.8,
     "road": "['Jackson Road']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 11,
@@ -127,9 +157,12 @@
     "jLon": -1.230349,
     "score": 0.675,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 280.5,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 12,
@@ -139,9 +172,12 @@
     "jLon": -1.19642,
     "score": 0.669,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 151.3,
     "road": "['Unnamed']",
-    "roadType": "['tertiary_link']"
+    "roadType": "['tertiary_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 13,
@@ -151,9 +187,12 @@
     "jLon": -1.265433,
     "score": 0.666,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 317.5,
     "road": "['Jackson Road']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 14,
@@ -163,9 +202,12 @@
     "jLon": -1.26529,
     "score": 0.666,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 137.5,
     "road": "['Jackson Road']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 15,
@@ -175,9 +217,12 @@
     "jLon": -1.26529,
     "score": 0.666,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 356.8,
     "road": "['Jackson Road']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 16,
@@ -187,9 +232,12 @@
     "jLon": -1.229465,
     "score": 0.651,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 169.2,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 17,
@@ -199,9 +247,12 @@
     "jLon": -1.279075,
     "score": 0.63,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 269.5,
     "road": "['Sunderland Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 18,
@@ -211,9 +262,12 @@
     "jLon": -1.271612,
     "score": 0.63,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 93.2,
     "road": "['Sunderland Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 19,
@@ -223,9 +277,12 @@
     "jLon": -1.214563,
     "score": 0.621,
     "type": "5-way",
+    "mergeType": "minor_to_major",
     "bearing": 358.0,
     "road": "['Unnamed']",
-    "roadType": "['tertiary']"
+    "roadType": "['tertiary']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 20,
@@ -235,9 +292,12 @@
     "jLon": -1.279615,
     "score": 0.62,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 263.6,
     "road": "['Sunderland Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 21,
@@ -247,9 +307,12 @@
     "jLon": -1.218219,
     "score": 0.619,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 131.3,
     "road": "['Unnamed']",
-    "roadType": "['tertiary']"
+    "roadType": "['tertiary']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 22,
@@ -259,9 +322,12 @@
     "jLon": -1.19966,
     "score": 0.594,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 24.4,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 23,
@@ -271,9 +337,12 @@
     "jLon": -1.191741,
     "score": 0.588,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 6.3,
     "road": "['Collinwood Road']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 24,
@@ -283,9 +352,12 @@
     "jLon": -1.185425,
     "score": 0.588,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 84.2,
     "road": "['Burlington Crescent']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 25,
@@ -295,9 +367,12 @@
     "jLon": -1.218302,
     "score": 0.583,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 2.7,
     "road": "['Barton Fields Road']",
-    "roadType": "['tertiary_link']"
+    "roadType": "['tertiary_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 26,
@@ -307,9 +382,12 @@
     "jLon": -1.214835,
     "score": 0.582,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 260.0,
     "road": "['Unnamed']",
-    "roadType": "['secondary_link']"
+    "roadType": "['secondary_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 27,
@@ -319,9 +397,12 @@
     "jLon": -1.181871,
     "score": 0.582,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 159.3,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 28,
@@ -331,9 +412,12 @@
     "jLon": -1.181871,
     "score": 0.582,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 347.5,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 29,
@@ -343,9 +427,12 @@
     "jLon": -1.195089,
     "score": 0.577,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 85.8,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 30,
@@ -355,9 +442,12 @@
     "jLon": -1.233281,
     "score": 0.572,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 292.0,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 31,
@@ -367,9 +457,12 @@
     "jLon": -1.230522,
     "score": 0.57,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 73.0,
     "road": "['Elsfield Road']",
-    "roadType": "['unclassified']"
+    "roadType": "['unclassified']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 32,
@@ -379,9 +472,12 @@
     "jLon": -1.230522,
     "score": 0.57,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 154.0,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 33,
@@ -391,9 +487,12 @@
     "jLon": -1.195038,
     "score": 0.569,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 78.5,
     "road": "['Beaumont Road']",
-    "roadType": "['unclassified']"
+    "roadType": "['unclassified']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 34,
@@ -403,9 +502,12 @@
     "jLon": -1.19566,
     "score": 0.562,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 78.7,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 35,
@@ -415,9 +517,12 @@
     "jLon": -1.215743,
     "score": 0.557,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 285.4,
     "road": "['Sandy Lane West']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 36,
@@ -427,9 +532,12 @@
     "jLon": -1.196775,
     "score": 0.555,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 148.3,
     "road": "['Unnamed']",
-    "roadType": "['tertiary_link']"
+    "roadType": "['tertiary_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 37,
@@ -439,9 +547,12 @@
     "jLon": -1.21881,
     "score": 0.553,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 5.8,
     "road": "['Unnamed']",
-    "roadType": "['tertiary']"
+    "roadType": "['tertiary']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 38,
@@ -451,9 +562,12 @@
     "jLon": -1.21881,
     "score": 0.553,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 220.9,
     "road": "['Barton Fields Road']",
-    "roadType": "['tertiary']"
+    "roadType": "['tertiary']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 39,
@@ -463,9 +577,12 @@
     "jLon": -1.214222,
     "score": 0.543,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 60.1,
     "road": "['Unnamed']",
-    "roadType": "['trunk_link']"
+    "roadType": "['trunk_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 40,
@@ -475,9 +592,12 @@
     "jLon": -1.214177,
     "score": 0.541,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 80.0,
     "road": "['Unnamed']",
-    "roadType": "['secondary_link']"
+    "roadType": "['secondary_link']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 41,
@@ -487,9 +607,12 @@
     "jLon": -1.227579,
     "score": 0.539,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 185.8,
     "road": "['Pullens Lane']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 42,
@@ -499,9 +622,12 @@
     "jLon": -1.181916,
     "score": 0.537,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 166.5,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 43,
@@ -511,9 +637,12 @@
     "jLon": -1.287497,
     "score": 0.535,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 202.9,
     "road": "['Unnamed']",
-    "roadType": "['tertiary']"
+    "roadType": "['tertiary']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 44,
@@ -523,9 +652,12 @@
     "jLon": -1.287497,
     "score": 0.535,
     "type": "Crossroads",
+    "mergeType": "minor_to_major",
     "bearing": 328.9,
     "road": "['Lady White Crescent']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 45,
@@ -535,9 +667,12 @@
     "jLon": -1.181226,
     "score": 0.522,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 93.3,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 46,
@@ -547,9 +682,12 @@
     "jLon": -1.267409,
     "score": 0.522,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 20.5,
     "road": "['Bainton Road']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 47,
@@ -559,9 +697,12 @@
     "jLon": -1.259247,
     "score": 0.517,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 168.0,
     "road": "[\"St Giles'\"]",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 48,
@@ -571,9 +712,12 @@
     "jLon": -1.280213,
     "score": 0.515,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 172.8,
     "road": "['Five Mile Drive']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 49,
@@ -583,9 +727,12 @@
     "jLon": -1.181801,
     "score": 0.515,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 166.2,
     "road": "['Merewood Avenue']",
-    "roadType": "['residential']"
+    "roadType": "['residential']",
+    "majorClass": 0,
+    "minorClass": 0
   },
   {
     "id": 50,
@@ -595,8 +742,11 @@
     "jLon": -1.260248,
     "score": 0.513,
     "type": "T-junction",
+    "mergeType": "minor_to_major",
     "bearing": 283.1,
     "road": "[\"St Giles'\"]",
-    "roadType": "['primary_link']"
+    "roadType": "['primary_link']",
+    "majorClass": 0,
+    "minorClass": 0
   }
 ]

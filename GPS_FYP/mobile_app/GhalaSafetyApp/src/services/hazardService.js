@@ -9,6 +9,7 @@ const HAZARD_CACHE_KEY = 'ghala_hazard_cache_v1';
 const PROXIMITY_RADIUS_M = 300;
 const BEARING_TOLERANCE_DEG = 60;
 const COOLDOWN_MS = 60000;
+const MIN_SCORE_THRESHOLD = 0.35;
 
 const cooldowns = {};
 
@@ -16,19 +17,41 @@ let hazards = [];
 let hazardTree = null;
 let isInitialized = false;
 
+function isFiniteNumber(value) {
+  return Number.isFinite(value);
+}
+
+function isValidHazard(hazard) {
+  return (
+    hazard &&
+    isFiniteNumber(hazard.lat) &&
+    isFiniteNumber(hazard.lon) &&
+    isFiniteNumber(hazard.score)
+  );
+}
+
 function normalizeHazard(raw, idx) {
+  const lat = Number(raw.lat);
+  const lon = Number(raw.lon);
+  const score = Number(raw.score ?? 0);
+  const bearing = raw.bearing == null ? null : Number(raw.bearing);
+
   return {
     ...raw,
     id: raw.id ?? idx + 1,
-    lat: Number(raw.lat),
-    lon: Number(raw.lon),
-    score: Number(raw.score ?? 0),
-    bearing: raw.bearing == null ? null : Number(raw.bearing),
+    lat,
+    lon,
+    score,
+    bearing: isFiniteNumber(bearing) ? bearing : null,
   };
 }
 
 function buildSpatialIndex(list) {
   const tree = new RBush();
+  if (!Array.isArray(list) || list.length === 0) {
+    return tree;
+  }
+
   const entries = list.map((h) => ({
     minX: h.lon,
     minY: h.lat,
@@ -56,7 +79,7 @@ async function initializeHazardService() {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        hazards = parsed.map(normalizeHazard);
+        hazards = parsed.map(normalizeHazard).filter(isValidHazard);
       }
     }
   } catch (error) {
@@ -64,7 +87,7 @@ async function initializeHazardService() {
   }
 
   if (hazards.length === 0) {
-    hazards = bundledHazards.map(normalizeHazard);
+    hazards = bundledHazards.map(normalizeHazard).filter(isValidHazard);
   }
 
   hazardTree = buildSpatialIndex(hazards);
@@ -80,11 +103,16 @@ async function initializeHazardService() {
 }
 
 function getAllHazards() {
-  return isInitialized ? hazards : bundledHazards;
+  if (isInitialized) return hazards;
+  return bundledHazards.map(normalizeHazard).filter(isValidHazard);
 }
 
 function findNearby(userLat, userLon, radiusM = PROXIMITY_RADIUS_M) {
-  const source = isInitialized ? hazards : bundledHazards;
+  if (!isFiniteNumber(userLat) || !isFiniteNumber(userLon)) {
+    return [];
+  }
+
+  const source = getAllHazards();
   const latPad = metersToLat(radiusM);
   const lonPad = metersToLon(radiusM, userLat);
 
@@ -102,6 +130,8 @@ function findNearby(userLat, userLon, radiusM = PROXIMITY_RADIUS_M) {
 
   const nearby = [];
   for (const h of candidates) {
+    if (!isValidHazard(h)) continue;
+
     const dist = haversine(userLat, userLon, h.lat, h.lon);
     if (dist <= radiusM) {
       nearby.push({ ...h, distance: Math.round(dist) });
@@ -126,29 +156,20 @@ function markWarned(hazardId) {
   cooldowns[hazardId] = Date.now();
 }
 
-function checkForWarning(userLat, userLon, userBearing, options = {}) {
-  const radiusM = options.proximityRadiusM ?? PROXIMITY_RADIUS_M;
-  const toleranceDeg = options.bearingToleranceDeg ?? BEARING_TOLERANCE_DEG;
-  const cooldownMs = options.cooldownMs ?? COOLDOWN_MS;
-  const minScore = options.minScore ?? 0.0;
+function checkForWarning(userLat, userLon, userBearing) {
+  if (!isFiniteNumber(userLat) || !isFiniteNumber(userLon)) {
+    return null;
+  }
 
-  const nearby = findNearby(userLat, userLon, radiusM);
+  const nearby = findNearby(userLat, userLon, PROXIMITY_RADIUS_M);
 
   for (const h of nearby) {
-    if (h.score < minScore) continue;
-    if (!isCooldownClear(h.id, cooldownMs)) continue;
-    if (!isApproaching(userBearing, h, toleranceDeg)) continue;
+    if (h.score < MIN_SCORE_THRESHOLD) continue;
+    if (!isCooldownClear(h.id, COOLDOWN_MS)) continue;
+    if (!isApproaching(userBearing, h, BEARING_TOLERANCE_DEG)) continue;
     return h;
   }
   return null;
-}
-
-function getHazardServiceStats() {
-  return {
-    initialized: isInitialized,
-    hazardCount: hazards.length,
-    cacheKey: HAZARD_CACHE_KEY,
-  };
 }
 
 export {
@@ -157,7 +178,4 @@ export {
   findNearby,
   checkForWarning,
   markWarned,
-  getHazardServiceStats,
-  PROXIMITY_RADIUS_M,
-  COOLDOWN_MS,
 };

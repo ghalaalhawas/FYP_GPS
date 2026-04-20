@@ -1,7 +1,5 @@
-// WarningBanner.js - slides in from the bottom when a hazard is nearby
-
 import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function WarningBanner({ hazard, visible }) {
   if (!visible || !hazard) return null;
@@ -17,7 +15,7 @@ export default function WarningBanner({ hazard, visible }) {
         {hazard.type} ahead — {hazard.distance}m
       </Text>
       <Text style={styles.detail}>
-        {hazard.road !== "['Unnamed']" ? hazard.road.replace(/[\[\]']/g, '') : 'Unnamed road'} ({hazard.roadType.replace(/[\[\]']/g, '')})
+        {(hazard.road || 'Unnamed road').replace(/[\[\]']/g, '')} ({(hazard.roadType || 'unknown').replace(/[\[\]']/g, '')})
       </Text>
       <Text style={styles.score}>
         Danger score: {hazard.score.toFixed(2)}

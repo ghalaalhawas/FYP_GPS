@@ -129,26 +129,15 @@ def displace_along_geometry(junction_lat, junction_lon, edge_geometry,
 
 
 def calculate_enhanced_danger_score(junction_info, parser):
-    """Danger score (0-1) weighted toward minor->major class mismatch."""
-    scores = {}
-
-    # --- 1. Road classification mismatch (0-1) ---
-    road_classes = []
-    for edge in junction_info['edges']:
-        road_classes.append(parser.get_road_classification(edge['highway']))
+    """Danger score (0-1) focused on minor-to-major road mismatch and approach angle."""
+    road_classes = [parser.get_road_classification(edge['highway']) for edge in junction_info['edges']]
 
     if len(road_classes) >= 2:
         class_diff = max(road_classes) - min(road_classes)
-        # Diff of 6+ maps to 1.0  (e.g. primary vs residential)
-        scores['class_mismatch'] = min(class_diff / 6.0, 1.0)
+        class_score = min(class_diff / 6.0, 1.0)
     else:
-        scores['class_mismatch'] = 0.0
+        class_score = 0.0
 
-    # --- 2. Speed differential (0-1) ---
-    speed_diff = junction_info.get('speed_differential', 0)
-    scores['speed_diff'] = min(speed_diff / 40.0, 1.0)
-
-    # --- 3. Approach angle sharpness (0-1) ---
     if len(junction_info['edges']) >= 2:
         jlat, jlon = junction_info['location']
         bearings = []
@@ -156,8 +145,7 @@ def calculate_enhanced_danger_score(junction_info, parser):
             other_id = edge['to'] if edge['from'] == junction_info['id'] else edge['from']
             try:
                 other_node = parser.nodes.loc[other_id]
-                b = bearing_between(jlat, jlon, other_node.geometry.y, other_node.geometry.x)
-                bearings.append(b)
+                bearings.append(bearing_between(jlat, jlon, other_node.geometry.y, other_node.geometry.x))
             except KeyError:
                 continue
 
@@ -165,35 +153,14 @@ def calculate_enhanced_danger_score(junction_info, parser):
             min_angle = 180
             for i in range(len(bearings)):
                 for j in range(i + 1, len(bearings)):
-                    a = angle_between_bearings(bearings[i], bearings[j])
-                    if a < min_angle:
-                        min_angle = a
-            scores['angle'] = max(0, 1.0 - min_angle / 90.0)
+                    min_angle = min(min_angle, angle_between_bearings(bearings[i], bearings[j]))
+            angle_score = max(0, 1.0 - min_angle / 90.0)
         else:
-            scores['angle'] = 0.0
+            angle_score = 0.0
     else:
-        scores['angle'] = 0.0
+        angle_score = 0.0
 
-    # --- 4. Junction complexity (0-1) ---
-    street_count = junction_info['street_count']
-    if street_count == 3:
-        scores['complexity'] = 0.5
-    elif street_count == 4:
-        scores['complexity'] = 0.4
-    elif street_count >= 5:
-        scores['complexity'] = 0.7
-    else:
-        scores['complexity'] = 0.2
-
-    # --- Weighted combination (focused on minor→major) ---
-    weights = {
-        'class_mismatch': 0.35,
-        'speed_diff':     0.30,
-        'angle':          0.20,
-        'complexity':     0.15,
-    }
-
-    total = sum(scores[k] * weights[k] for k in weights)
+    total = (class_score * 0.7) + (angle_score * 0.3)
     return round(min(max(total, 0.0), 1.0), 4)
 
 
@@ -327,7 +294,6 @@ def generate_hazard_points(parser, danger_threshold=DANGER_THRESHOLD,
                 'road_type': road['edge'].get('highway', 'unknown'),
                 'major_road_class': road.get('max_class', 0),
                 'minor_road_class': road.get('road_class', 0),
-                'speed_differential': info.get('speed_differential', 0),
                 'geometry': Point(wlon, wlat),   # GeoJSON is (lon, lat)
             })
 
@@ -484,7 +450,7 @@ def main():
     for _, r in top10.iterrows():
         print(f"  {r['junction_type']:12s}  score={r['danger_score']:.3f}  "
               f"minor={r['road_name']} ({r['road_type']})  "
-              f"speed_diff={r['speed_differential']} mph")
+              f"class={r['minor_road_class']}→{r['major_road_class']}")
 
     visualize_hazard_points(parser, hazard_gdf, place_name)
     visualize_displacement_example(parser, hazard_gdf, place_name)

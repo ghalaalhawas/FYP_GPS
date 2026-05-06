@@ -156,6 +156,10 @@ function markWarned(hazardId) {
   cooldowns[hazardId] = Date.now();
 }
 
+function clearCooldowns() {
+  Object.keys(cooldowns).forEach((key) => delete cooldowns[key]);
+}
+
 function checkForWarning(userLat, userLon, userBearing) {
   if (!isFiniteNumber(userLat) || !isFiniteNumber(userLon)) {
     return null;
@@ -178,4 +182,5 @@ export {
   findNearby,
   checkForWarning,
   markWarned,
+  clearCooldowns,
 };

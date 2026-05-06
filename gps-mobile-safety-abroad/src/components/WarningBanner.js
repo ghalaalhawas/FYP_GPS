@@ -6,19 +6,32 @@ export default function WarningBanner({ hazard, visible }) {
 
   const isHigh = hazard.score >= 0.7;
   const accentColor = isHigh ? '#cc0000' : '#e68a00';
-  const label = isHigh ? 'HIGH RISK' : 'CAUTION';
+  const urgency = isHigh ? 'HIGH RISK' : 'CAUTION';
+  const road = (hazard.road || 'Unnamed road').replace(/[\[\]']/g, '');
+
+  const turnDir = hazard.turnDirection;
+  const dirLabel = turnDir === 'right' ? 'KEEP RIGHT ►' : '◄ KEEP LEFT';
+  const dirSub =
+    turnDir === 'right'
+      ? 'Bear right — stay on the right side when joining'
+      : 'Bear left — stay on the left side when joining';
 
   return (
-    <View style={[styles.banner, { borderLeftColor: accentColor }]}>  
-      <Text style={[styles.label, { color: accentColor }]}>{label}</Text>
+    <View style={[styles.banner, { borderLeftColor: accentColor }]}>
+      <View style={styles.headerRow}>
+        <Text style={[styles.label, { color: accentColor }]}>{urgency}</Text>
+        <View style={[styles.dirBadge, { backgroundColor: accentColor }]}>
+          <Text style={styles.dirText}>{dirLabel}</Text>
+        </View>
+      </View>
       <Text style={styles.title}>
-        {hazard.type} ahead — {hazard.distance}m
+        Narrow road joining wider road in {hazard.distance}m
       </Text>
       <Text style={styles.detail}>
-        {(hazard.road || 'Unnamed road').replace(/[\[\]']/g, '')} ({(hazard.roadType || 'unknown').replace(/[\[\]']/g, '')})
+        {dirSub}{road !== 'Unnamed road' ? ` — ${road}` : ''}
       </Text>
-      <Text style={styles.score}>
-        Danger score: {hazard.score.toFixed(2)}
+      <Text style={styles.sub}>
+        {hazard.type} · danger score: {hazard.score.toFixed(2)}
       </Text>
     </View>
   );
@@ -40,11 +53,27 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 6,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   label: {
     fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 1,
-    marginBottom: 2,
+  },
+  dirBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  dirText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   title: {
     fontSize: 17,
@@ -57,8 +86,9 @@ const styles = StyleSheet.create({
     color: '#555',
     marginBottom: 2,
   },
-  score: {
+  sub: {
     fontSize: 12,
     color: '#888',
+    marginTop: 1,
   },
 });
